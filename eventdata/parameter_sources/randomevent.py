@@ -3,8 +3,11 @@ import random
 import datetime
 import calendar
 import gzip
-import re
 import os
+from random import choice, randint
+import re
+import string
+import uuid
 from eventdata.parameter_sources.weightedarray import WeightedArray
 from eventdata.parameter_sources.timeutils import TimestampStructGenerator
 
@@ -14,13 +17,13 @@ class Agent:
     def __init__(self):
         self._agents = WeightedArray('%s/data/agents.json.gz' % cwd)
 
-        with gzip.open('%s/data/agents_name_lookup.json.gz' % cwd, 'rt') as data_file:    
+        with gzip.open('%s/data/agents_name_lookup.json.gz' % cwd, 'rt') as data_file:
             self._agents_name_lookup = json.load(data_file)
 
-        with gzip.open('%s/data/agents_os_lookup.json.gz' % cwd, 'rt') as data_file:    
+        with gzip.open('%s/data/agents_os_lookup.json.gz' % cwd, 'rt') as data_file:
             self._agents_os_lookup = json.load(data_file)
 
-        with gzip.open('%s/data/agents_os_name_lookup.json.gz' % cwd, 'rt') as data_file:    
+        with gzip.open('%s/data/agents_os_name_lookup.json.gz' % cwd, 'rt') as data_file:
             self._agents_os_name_lookup = json.load(data_file)
 
     def add_fields(self, event):
@@ -38,10 +41,10 @@ class ClientIp:
         self._clientips = WeightedArray('%s/data/clientips.json.gz' % cwd)
         self._rare_clientips = WeightedArray('%s/data/rare_clientips.json.gz' % cwd)
 
-        with gzip.open('%s/data/clientips_country_lookup.json.gz' % cwd, 'rt') as data_file:    
+        with gzip.open('%s/data/clientips_country_lookup.json.gz' % cwd, 'rt') as data_file:
             self._clientips_country_lookup = json.load(data_file)
 
-        with gzip.open('%s/data/clientips_location_lookup.json.gz' % cwd, 'rt') as data_file:    
+        with gzip.open('%s/data/clientips_location_lookup.json.gz' % cwd, 'rt') as data_file:
             self._clientips_location_lookup = json.load(data_file)
 
     def add_fields(self, event):
@@ -72,7 +75,7 @@ class Referrer:
     def __init__(self):
         self._referrers = WeightedArray('%s/data/referrers.json.gz' % cwd)
 
-        with gzip.open('%s/data/referrers_url_base_lookup.json.gz' % cwd, 'rt') as data_file:    
+        with gzip.open('%s/data/referrers_url_base_lookup.json.gz' % cwd, 'rt') as data_file:
             self._referrers_url_base_lookup = json.load(data_file)
 
     def add_fields(self, event):
@@ -84,7 +87,7 @@ class Request:
     def __init__(self):
         self._requests = WeightedArray('%s/data/requests.json.gz' % cwd)
 
-        with gzip.open('%s/data/requests_url_base_lookup.json.gz' % cwd, 'rt') as data_file:    
+        with gzip.open('%s/data/requests_url_base_lookup.json.gz' % cwd, 'rt') as data_file:
             self._requests_url_base_lookup = json.load(data_file)
 
     def add_fields(self, event):
@@ -96,12 +99,29 @@ class Request:
         event['response'] = data[4]
         event['httpversion'] = data[5]
 
+def random_int(max_size):
+    return randint(1, max_size)
+
+def random_string(max_size):
+    return ''.join(choice(string.ascii_lowercase) for _ in range(random_int(max_size)))
+
+class VmMetric(object):
+    def add_fields(self, event):
+        event["vm_uuid"] = str(uuid.uuid4())
+        event["vm_name"] = random_string(32)
+        event["cluster_uuid"] = str(uuid.uuid4())
+        event["cluster_name"] = random_string(32)
+        for ii in range(1, 101):
+          event["metric_%s" % ii] = random_int(8000000000)
+          #event["metric_%s" % ii] = random_string(32)
+
 class RandomEvent:
     def __init__(self, params):
         self._agent = Agent()
         self._clientip = ClientIp()
         self._referrer = Referrer()
         self._request = Request()
+        self._vm_metric = VmMetric()
 
         self._index = 'elasticlogs'
         self._index_pattern = False
@@ -141,20 +161,24 @@ class RandomEvent:
 
     def generate_event(self):
         event = {}
+        """
         self._agent.add_fields(event)
         self._clientip.add_fields(event)
         self._referrer.add_fields(event)
         self._request.add_fields(event)
+        """
+        self._vm_metric.add_fields(event)
 
         timestruct = self._timestamp_generator.generate_timestamp_struct()
         event['@timestamp'] = timestruct['iso']
 
+        index_name = self.__generate_index_pattern(timestruct)
+        """
         if 'message' not in self._delete_fields:
             event['message'] = self.__generate_message_field(event)
 
-        index_name = self.__generate_index_pattern(timestruct)
-
         self.__delete_requested_fields(event)
+        """
 
         return event, index_name, self._type
 

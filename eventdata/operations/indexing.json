@@ -83,7 +83,7 @@
   "index_template_body": {
     "template": "elasticlogs_q-*",
     "settings": {
-      "index.refresh_interval": "5s",
+      "index.refresh_interval": "30s",
       "index.codec": "best_compression",
       "index.number_of_replicas": {{ replica_count }},
       "index.number_of_shards": {{ shard_count }}
@@ -103,7 +103,7 @@
   "index_template_body": {
     "template": "elasticlogs_i-*",
     "settings": {
-      "index.refresh_interval": "5s",
+      "index.refresh_interval": "30s",
       "index.codec": "best_compression",
       "index.number_of_replicas": {{ replica_count }},
       "index.number_of_shards": {{ shard_count }}

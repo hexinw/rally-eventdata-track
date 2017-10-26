@@ -1,7 +1,10 @@
 import logging
+import random
+import uuid
 from eventdata.parameter_sources.randomevent import RandomEvent
 
 logger = logging.getLogger("track.elasticlogs")
+
 
 class ElasticlogsBulkSource:
     """
@@ -53,6 +56,10 @@ class ElasticlogsBulkSource:
         if 'bulk-size' in params.keys():
             self._bulk_size = params['bulk-size']
 
+        #self._routing_ids = [ "01", "02", "03", "04", "11" ]
+        self._routing_ids = [ "01", "02", "06" ]
+        self._routing_idx = -1
+
         self._default_index = False
         if 'index' not in params.keys():
             if len(indices) > 1:
@@ -75,12 +82,19 @@ class ElasticlogsBulkSource:
     def size(self):
         return 1
 
+    def generate_routing(self):
+       # self._routing_idx = (self._routing_idx + 1) % len(self._routing_ids)
+       self._routing_idx = random.randint(0, len(self._routing_ids)-1)
+       return self._routing_ids[self._routing_idx]
+
     def params(self):
         # Build bulk array
         bulk_array = []
         for x in range(0, self._bulk_size):
             evt, idx, typ = self._randomevent.generate_event()
+            #bulk_array.append({'_op_type': 'update', '_index': idx, '_type': typ, '_id': str(uuid.uuid4()), 'doc_as_upsert': True, 'doc': evt})
             bulk_array.append({'index': {'_index': idx, '_type': typ}})
+            # bulk_array.append({'index': {'_index': idx, '_type': typ, '_routing': self.generate_routing()}})
             bulk_array.append(evt)
 
         response = { "body": bulk_array, "action_metadata_present": True, "bulk-size": self._bulk_size }
